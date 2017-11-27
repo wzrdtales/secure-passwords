@@ -22,5 +22,8 @@
     "url": "https://github.com/wzrdtales/secure-passwords/issues"
   },
   "homepage": "https://github.com/wzrdtales/secure-passwords#readme",
-  "dependencies": {}
+  "dependencies": {
+    "bluebird": "^3.5.1",
+    "moment": "^2.19.2"
+  }
 }

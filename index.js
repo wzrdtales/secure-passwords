@@ -2,23 +2,23 @@
 
 const Promise = require('bluebird');
 const crypto = require('crypto');
+const moment = require('moment');
 
 const processRounds = async (input, domain, prior, rounds) => {
-  let output = input;
-
   function hash (challenge, prior) {
-    const hash = crypto.createHash('sha512');
-    hash.update(`${challenge.challenge}${challenge.date}${domain}${prior}`);
-    return hash.digest('hex');
+    return crypto
+      .createHash('sha512')
+      .update(`${challenge.challenge}${challenge.date}${domain}${prior}`)
+      .digest('hex');
   }
 
   // This should be optimized with process.nextTick
   // For now keep it simple but prepared
   return new Promise(resolve => {
-    while (--rounds) {
+    while (rounds--) {
       prior = hash(input, prior);
     }
-    resolve(output);
+    resolve(prior);
   });
 };
 const randomString = function (len) {
@@ -44,6 +44,14 @@ class SP {
       throw new Error('Passed an invalid algorithm');
     }
 
+    if (
+      options.algorithm &&
+      options.hashAlgorithm &&
+      typeof options.hashAlgorithm !== 'string'
+    ) {
+      throw new Error('Expected a string for option hashAlgorithm');
+    }
+
     if (!options.db && typeof options.db !== 'object') {
       throw new Error('Missing database controller');
     }
@@ -53,7 +61,8 @@ class SP {
     }
 
     this.algorithm = options.algorithm;
-    this.hash = options.hashAlgorithm;
+    // this is what we tell the user
+    this.hash = options.algorithm ? options.hashAlgorithm : 'sha512';
     this.db = options.db;
     this.rounds = options.rounds || 10;
     // The default of 10 seconds should be reasonable enough
@@ -64,10 +73,14 @@ class SP {
 
   async challenge (username, ip) {
     const challenge = {
-      challenge: randomString(32),
-      date: new Date().toString()
+      challenge: await randomString(32),
+      date: moment().format()
     };
     const salt = await this.db.getSalt(username);
+
+    if (!salt) {
+      return { Error: 'You either been IP banned or there is noch such user.' };
+    }
 
     if (
       (await this.db.setChallenge(username, challenge, ip, this.validTill)) !==
@@ -77,7 +90,7 @@ class SP {
       return { auth: 'in progress' };
     }
 
-    return { ...challenge, salt: salt };
+    return { ...challenge, hash: this.hash, salt: salt, rounds: this.rounds };
   }
 
   async auth (username, ip, auth) {
@@ -87,11 +100,15 @@ class SP {
       return { Error: 'Either the user or challenge does not exist' };
     }
 
-    if (new Date(challenge) + this.validTill > new Date()) {
+    if (
+      moment(challenge)
+        .add(this.validTill)
+        .toDate() > new Date()
+    ) {
       return { Error: 'Challenge expired' };
     }
 
-    if (typeof this.algorithm !== 'string') {
+    if (typeof this.algorithm === 'function') {
       result = await this.algorithm(
         username,
         hash,
@@ -99,16 +116,16 @@ class SP {
         this.options
       );
     } else {
-      result = processRounds(challenge, this.domain, hash, this.rounds);
+      result = await processRounds(challenge, this.domain, hash, this.rounds);
     }
 
     // Cleaning can happen async
     this.db.cleanChallenge(username, ip);
 
     if (result === auth) {
-      return { authenticated: 'true', Error: false };
+      return { auth: true, Error: false };
     } else {
-      return { authenticated: 'false', Error: false };
+      return { auth: false, Error: false };
     }
   }
 }

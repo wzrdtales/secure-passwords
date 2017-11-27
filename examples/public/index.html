@@ -1,0 +1,77 @@
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width" />
+      <title>Auth demo page</title>
+      <script 
+        src="https://code.jquery.com/jquery-3.2.1.min.js" 
+        integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+        crossorigin="anonymous"></script>
+      <script src='https://cdnjs.cloudflare.com/ajax/libs/js-sha512/0.7.0/sha512.js'></script>
+    </head>
+
+    <body>
+      <div class="form">
+       <form action="#" method="POST" accept-charset="utf-8">
+         <input type="text" name="username" placeholder="username..." id="username" value="" /> <br />
+         <input type="password" name="password" placeholder="password..." id="password" value="" /> <br />
+         <input type="submit" value="Login" />
+       </form> 
+      </div>
+
+      <script type="text/javascript">
+
+        function auth(username, hash) {
+          $.post('/login', { username: username, password: hash }, function(data) {
+
+            if(data.Error) {
+              alert('Error: ' + data.Error);
+            }
+            else if(data.auth) {
+              alert('Authenticated successfully!');
+            } else {
+              alert('Authentication failed!');
+            }
+          });
+        }
+
+        function challenge(username, password) {
+
+          $.post('challenge', { username: username }, function(data) {
+            var result;
+            var i = 0;
+            console.log(data);
+
+            if( data.auth === 'in progress' ) {
+              setTimeout(function() {
+                challenge(username, password);
+              }, 1000)
+            } else if(data.auth === true) {
+              // do nothing
+            } else if(data.hash === 'sha512'){
+              result = sha512(data.salt + password);
+
+              for(; i < data.rounds; ++i) {
+                console.log(data.challenge + data.date + 'example.com' + result)
+                result = sha512(data.challenge + data.date + 'example.com' + result);
+              }
+
+              auth(username, result);
+            }
+          }, 'json');
+        }
+
+        $('form').submit(function(event) {
+          var username = $('#username').val();
+          var password = $('#password').val()
+          event.preventDefault();
+
+          challenge(username, password);
+          return false;
+        })    
+      </script>
+
+    </body>
+  </html>
+
