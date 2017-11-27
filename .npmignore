@@ -1,0 +1,12 @@
+.github
+test
+migrations
+VCSeeder
+Seeder
+node_modules
+*.db
+database.json
+*.sublime-project
+*.sublime-workspace
+archive
+.db-migraterc

@@ -1,0 +1,26 @@
+{
+  "name": "secure-passwords",
+  "version": "1.0.0",
+  "description": "An authtentication strategy that finally stops exposing users passwords on the wire.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wzrdtales/secure-passwords.git"
+  },
+  "keywords": [
+    "secure",
+    "password",
+    "security",
+    "wire"
+  ],
+  "author": "Tobias Gurtzick <magic@wizardtales.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wzrdtales/secure-passwords/issues"
+  },
+  "homepage": "https://github.com/wzrdtales/secure-passwords#readme",
+  "dependencies": {}
+}
