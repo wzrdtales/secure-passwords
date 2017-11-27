@@ -79,7 +79,10 @@ class SP {
     const salt = await this.db.getSalt(username);
 
     if (!salt) {
-      return { Error: 'You either been IP banned or there is noch such user.' };
+      return {
+        Error: 'You either been IP banned or there is noch such user.',
+        code: 403
+      };
     }
 
     if (
@@ -87,7 +90,7 @@ class SP {
       'success'
     ) {
       // allow currently only a single auth request in parallel from the same ip
-      return { auth: 'in progress' };
+      return { auth: 'in progress', code: 409 };
     }
 
     return { ...challenge, hash: this.hash, salt: salt, rounds: this.rounds };
@@ -97,7 +100,10 @@ class SP {
     const { hash, challenge } = await this.db.getAuth(username, ip);
     let result;
     if (hash === null || challenge === null) {
-      return { Error: 'Either the user or challenge does not exist' };
+      return {
+        Error: 'Either the user or challenge does not exist',
+        code: 403
+      };
     }
 
     if (
@@ -105,7 +111,7 @@ class SP {
         .add(this.validTill)
         .toDate() > new Date()
     ) {
-      return { Error: 'Challenge expired' };
+      return { Error: 'Challenge expired', code: 409 };
     }
 
     if (typeof this.algorithm === 'function') {
@@ -125,7 +131,7 @@ class SP {
     if (result === auth) {
       return { auth: true, Error: false };
     } else {
-      return { auth: false, Error: false };
+      return { auth: false, Error: false, code: 401 };
     }
   }
 }

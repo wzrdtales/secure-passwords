@@ -84,20 +84,32 @@ server
     server.route({
       method: 'POST',
       path: '/challenge',
-      handler: function (request) {
+      handler: async (request, h) => {
         const { username } = request.payload;
         const ip = request.info.remoteAddress;
-        return sp.challenge(username, ip);
+        const result = await sp.challenge(username, ip);
+
+        if (result.code) {
+          return h.response(result).code(result.code);
+        }
+
+        return result;
       }
     });
 
     server.route({
       method: 'POST',
       path: '/login',
-      handler: function (request) {
+      handler: async (request, h) => {
         const { username, password } = request.payload;
         const ip = request.info.remoteAddress;
-        return sp.auth(username, ip, password);
+        const result = await sp.auth(username, ip, password);
+
+        if (result.code) {
+          return h.response(result).code(result.code);
+        }
+
+        return result;
       }
     });
   })

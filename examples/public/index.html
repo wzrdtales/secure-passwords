@@ -31,7 +31,15 @@
             else if(data.auth) {
               alert('Authenticated successfully!');
             } else {
+              
+            }
+          })
+          .fail(function(data) {
+            if(data.status === 401) {
               alert('Authentication failed!');
+            }
+            else {
+              alert(data.responseJSON.Error);
             }
           });
         }
@@ -42,11 +50,7 @@
             var result;
             var i = 0;
 
-            if( data.auth === 'in progress' ) {
-              setTimeout(function() {
-                challenge(username, password);
-              }, 1000)
-            } else if(data.auth === true) {
+            if(data.auth === true) {
               // do nothing
             } else if(data.hash === 'sha512'){
               result = sha512(data.salt + password);
@@ -57,7 +61,16 @@
 
               auth(username, result);
             }
-          }, 'json');
+          }, 'json')
+          .fail(function(data) {
+            if( data.responseJSON.auth === 'in progress' ) {
+              setTimeout(function() {
+                challenge(username, password);
+              }, 1000)
+            } else {
+              alert(data.responseJSON.Error);
+            }
+          });
         }
 
         $('form').submit(function(event) {
