@@ -41,7 +41,6 @@
           $.post('challenge', { username: username }, function(data) {
             var result;
             var i = 0;
-            console.log(data);
 
             if( data.auth === 'in progress' ) {
               setTimeout(function() {
@@ -53,7 +52,6 @@
               result = sha512(data.salt + password);
 
               for(; i < data.rounds; ++i) {
-                console.log(data.challenge + data.date + 'example.com' + result)
                 result = sha512(data.challenge + data.date + 'example.com' + result);
               }
 
