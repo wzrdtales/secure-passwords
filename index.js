@@ -117,6 +117,7 @@ class SP {
         .add(this.validTill)
         .toDate() < new Date()
     ) {
+      this.db.cleanChallenge(username, ip, this.validTill);
       return { Error: 'Challenge expired', code: 409 };
     }
 
