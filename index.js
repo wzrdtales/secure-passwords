@@ -126,7 +126,7 @@ class SP {
     }
 
     // Cleaning can happen async
-    this.db.cleanChallenge(username, ip);
+    this.db.cleanChallenge(username, ip, this.validTill);
 
     if (result === auth) {
       return { auth: true, Error: false };
