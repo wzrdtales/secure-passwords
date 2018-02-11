@@ -69,6 +69,7 @@ class SP {
     this.validTill = options.validTill || 10 * 1000;
     this.options = options;
     this.domain = options.domain;
+    this.providesAge = options.providesAge || false;
   }
 
   async challenge (username, ip) {
@@ -103,7 +104,7 @@ class SP {
   }
 
   async auth (username, ip, auth) {
-    const { hash, challenge } = await this.db.getAuth(username, ip);
+    const { hash, challenge, age } = await this.db.getAuth(username, ip);
     let result;
     if (hash === null || challenge === null) {
       return {
@@ -112,10 +113,13 @@ class SP {
       };
     }
 
+    // either an age is provided or we take the date from the challenge
     if (
-      moment(challenge.date)
-        .add(this.validTill)
-        .toDate() < new Date()
+      (!this.providesAge &&
+        moment(challenge.date)
+          .add(this.validTill)
+          .toDate() < new Date()) ||
+      (this.providesAge && age > this.validTill)
     ) {
       this.db.cleanChallenge(username, ip, this.validTill);
       return { Error: 'Challenge expired', code: 409 };
