@@ -113,9 +113,9 @@ class SP {
     }
 
     if (
-      moment(challenge)
+      moment(challenge.date)
         .add(this.validTill)
-        .toDate() > new Date()
+        .toDate() < new Date()
     ) {
       return { Error: 'Challenge expired', code: 409 };
     }
