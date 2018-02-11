@@ -93,7 +93,13 @@ class SP {
       return { auth: 'in progress', code: 409 };
     }
 
-    return { ...challenge, hash: this.hash, salt: salt, rounds: this.rounds };
+    return {
+      code: 200,
+      ...challenge,
+      hash: this.hash,
+      salt: salt,
+      rounds: this.rounds
+    };
   }
 
   async auth (username, ip, auth) {
@@ -129,7 +135,7 @@ class SP {
     this.db.cleanChallenge(username, ip, this.validTill);
 
     if (result === auth) {
-      return { auth: true, Error: false };
+      return { auth: true, Error: false, code: 200 };
     } else {
       return { auth: false, Error: false, code: 401 };
     }
