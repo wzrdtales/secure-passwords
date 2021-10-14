@@ -4,8 +4,14 @@ const Promise = require('bluebird');
 const crypto = require('crypto');
 const moment = require('moment');
 
+const decrypt = (input, key, iv) => {
+  let decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  let decrypted = decipher.update(input, 'base64', 'utf8');
+  return decrypted + decipher.final('utf8');
+};
+
 const processRounds = async (input, domain, prior, rounds) => {
-  function hash (challenge, prior) {
+  function hash(challenge, prior) {
     return crypto
       .createHash('sha512')
       .update(`${challenge.challenge}${challenge.date}${domain}${prior}`)
@@ -21,7 +27,7 @@ const processRounds = async (input, domain, prior, rounds) => {
     resolve(prior);
   });
 };
-const randomString = function (len) {
+const randomString = function(len) {
   return new Promise((resolve, reject) => {
     crypto.randomBytes(Math.ceil(len / 2), (err, buf) => {
       if (err) {
@@ -39,7 +45,7 @@ const randomString = function (len) {
  * Any authentication request is bound to the requesters ip.
  * */
 class SP {
-  constructor (options = {}) {
+  constructor(options = {}) {
     if (options.algorithm && !typeof options.algorithm === 'function') {
       throw new Error('Passed an invalid algorithm');
     }
@@ -72,7 +78,7 @@ class SP {
     this.providesAge = options.providesAge || false;
   }
 
-  async challenge (username, ip) {
+  async challenge(username, ip) {
     const challenge = {
       challenge: await randomString(32),
       date: moment().format()
@@ -103,7 +109,25 @@ class SP {
     };
   }
 
-  async auth (username, ip, auth) {
+  async changePassword(username, ip, auth, newAuth) {
+    const r = await this.auth(username, ip, auth);
+    if (!r.auth) return r;
+
+    const { hash, challenge, age } = await this.db.getAuth(username, ip);
+
+    await this.db.setPassword(
+      username,
+      decrypt(
+        newAuth,
+        Buffer.from(hash.substr(0, 32), 'hex'),
+        Buffer.from(hash.substr(32, 48), 'hex')
+      )
+    );
+
+    return { code: 200, Error: false, success: true };
+  }
+
+  async auth(username, ip, auth) {
     const { hash, challenge, age } = await this.db.getAuth(username, ip);
     let result;
     if (hash === null || challenge === null) {
