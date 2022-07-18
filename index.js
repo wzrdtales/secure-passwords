@@ -20,14 +20,14 @@ const processRounds = async (input, domain, prior, rounds) => {
 
   // This should be optimized with process.nextTick
   // For now keep it simple but prepared
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     while (rounds--) {
       prior = hash(input, prior);
     }
     resolve(prior);
   });
 };
-const randomString = function(len) {
+const randomString = function (len) {
   return new Promise((resolve, reject) => {
     crypto.randomBytes(Math.ceil(len / 2), (err, buf) => {
       if (err) {
@@ -81,14 +81,14 @@ class SP {
   async challenge(username, ip) {
     const challenge = {
       challenge: await randomString(32),
-      date: moment().format()
+      date: moment().format(),
     };
     const salt = await this.db.getSalt(username);
 
     if (!salt) {
       return {
         Error: 'You either been IP banned or there is noch such user.',
-        code: 403
+        code: 403,
       };
     }
 
@@ -105,7 +105,7 @@ class SP {
       ...challenge,
       hash: this.hash,
       salt: salt,
-      rounds: this.rounds
+      rounds: this.rounds,
     };
   }
 
@@ -133,16 +133,14 @@ class SP {
     if (hash === null || challenge === null) {
       return {
         Error: 'Either the user or challenge does not exist',
-        code: 403
+        code: 403,
       };
     }
 
     // either an age is provided or we take the date from the challenge
     if (
       (!this.providesAge &&
-        moment(challenge.date)
-          .add(this.validTill)
-          .toDate() < new Date()) ||
+        moment(challenge.date).add(this.validTill).toDate() < new Date()) ||
       (this.providesAge && age > this.validTill)
     ) {
       this.db.cleanChallenge(username, ip, this.validTill);
@@ -161,7 +159,7 @@ class SP {
     }
 
     // Cleaning can happen async
-    this.db.cleanChallenge(username, ip, this.validTill);
+    this.db.cleanChallenge(username, ip, 0);
 
     if (result === auth) {
       return { auth: true, Error: false, code: 200 };
