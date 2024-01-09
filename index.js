@@ -4,6 +4,49 @@ const Promise = require('bluebird');
 const crypto = require('crypto');
 const moment = require('moment');
 
+
+// an interesting way of putting the whole extra load onto the
+// client. unlike other algos, we dont have to compute the result
+// ourselves, we have a rather short and cheap validation
+const pow = (input, domain, prior, rounds, responses, { challenge: { difficulty_factor: diff} }) => {
+  const fin = crypto
+      .createHash('sha512')
+      .update(`${input.challenge}${input.date}${domain}${prior}`)
+      .digest('hex');
+  let i = 0;
+
+  while(i * 64 < fin.length) {
+    const auth = responses[i]
+
+    let string = fin.substring(i * 64, i * 64 + 64); 
+
+    const prefix = Buffer.from([string.length, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]);
+
+    const hash = crypto.createHash('sha256').update(`${input.challenge}${prefix}${string}${auth.nonce}`).digest('hex');
+    const p = BigInt(auth.result);
+    if (!(hash.startsWith(p.toString(16)) && p > diff)) return null;
+    ++i;
+  }
+
+  return responses;
+}
+
+
+const algos = { pow }
+const extChallenge = { pow: function()  {
+    let difficultyFactor;
+    if(this.extraOpts && this.extraOpts.challenge && this.extraOpts.challenge.diff) {
+      difficultyFactor =  this.extraOpts.challenge.diff;
+    } else {
+      difficultyFactor = 100000;
+    }
+
+    return {
+      difficulty_factor: difficultyFactor
+    }
+  } 
+}
+
 const decrypt = (input, key, iv) => {
   let decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
   let decrypted = decipher.update(input, 'base64', 'utf8');
@@ -46,8 +89,12 @@ const randomString = function (len) {
  * */
 class SP {
   constructor(options = {}) {
-    if (options.algorithm && !typeof options.algorithm === 'function') {
+    if (options.algorithm && (!typeof options.algorithm === 'function' || !algos[options.algorithm])) {
       throw new Error('Passed an invalid algorithm');
+    }
+
+if (options.extChallenge && (!typeof options.extChallenge === 'function' || !extChallenge[options.extChallenge])) {
+      throw new Error('Passed an invalid algorithm to extChallenge');
     }
 
     if (
@@ -67,6 +114,9 @@ class SP {
     }
 
     this.algorithm = options.algorithm;
+    this.extChallenge = (typeof options.extChallenge === 'function' ? options.extChallenge : extChallenge[options.extChallenge]) 
+      || function () { return {} };
+    this.extraOpts = options.extraOpts;
     // this is what we tell the user
     this.hash = options.algorithm ? options.hashAlgorithm : 'sha512';
     this.db = options.db;
@@ -82,6 +132,7 @@ class SP {
     const challenge = {
       challenge: await randomString(32),
       date: moment().format(),
+      ...this.extChallenge()
     };
     const salt = await this.db.getSalt(username);
 
@@ -128,7 +179,8 @@ class SP {
   }
 
   async auth(username, ip, auth) {
-    const { hash, challenge, age } = await this.db.getAuth(username, ip);
+    const dbAuth =  await this.db.getAuth(username, ip);
+    const { hash, challenge, age } = dbAuth;
     let result;
     if (hash === null || challenge === null) {
       return {
@@ -152,8 +204,11 @@ class SP {
         username,
         hash,
         challenge.challenge,
-        this.options
+        this.options,
+        auth
       );
+    } else if (algos[this.algorithm])  {
+      result = await algos[this.algorithm](challenge, this.domain, hash, this.rounds, auth, dbAuth);
     } else {
       result = await processRounds(challenge, this.domain, hash, this.rounds);
     }

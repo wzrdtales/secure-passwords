@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Auth demo page</title>
+    <script
+      src="https://code.jquery.com/jquery-3.2.1.min.js"
+      integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha512/0.7.0/sha512.js"></script>
+    <script type="text/javascript">
+      const c = new Worker('bench.js');
+
+      function send(l, cb) {
+        try {
+          c.postMessage(l);
+          c.onmessage = async (t) => {
+            const n = t.data;
+            console.log(
+              `Proof generated. Difficuly: ${l.difficulty_factor} Duration: ${n.duration}`
+            );
+            const c = {
+              nonce: n.work.nonce,
+              result: n.work.result,
+            };
+
+            cb(null, c);
+          };
+        } catch (t) {
+          console.error(t);
+          cb(t);
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <div class="form">
+      <form id="form1" action="#" method="POST" accept-charset="utf-8">
+        <input
+          type="text"
+          name="username"
+          placeholder="username..."
+          id="username"
+          value=""
+        />
+        <br />
+        <input
+          type="password"
+          name="password"
+          placeholder="password..."
+          id="password"
+          value=""
+        />
+        <br />
+        <input type="submit" value="Login" />
+      </form>
+    </div>
+
+    <script type="text/javascript">
+      function auth(username, hash) {
+        $.ajax({
+          url: 'http://localhost:5000/login',
+          data: JSON.stringify({ username: username, password: hash }),
+          contentType: 'application/json',
+          type: 'POST',
+          success: function (data) {
+            if (data.Error) {
+              alert('Error: ' + data.Error);
+            } else if (data.auth) {
+              alert('Authenticated successfully!');
+            } else {
+            }
+          },
+        }).fail(function (data) {
+          if (data.status === 401) {
+            alert('Authentication failed!');
+          } else {
+            alert(data.responseJSON.Error);
+          }
+        });
+      }
+
+      function challenge(username, password) {
+        $.post(
+          'http://localhost:5000/challenge',
+          { username: username },
+          function (data) {
+            var result;
+            var i = 0;
+            console.log(data);
+
+            if (data.auth === true) {
+              // do nothing
+            } else if (data.hash === 'pow') {
+              result = sha512(data.salt + password);
+              result = sha512(
+                data.challenge + data.date + 'example.com' + result
+              );
+
+              let string = result.substring(0, 64);
+
+              send(
+                {
+                  string,
+                  difficulty_factor: data.difficulty_factor,
+                  salt: data.challenge,
+                },
+                (err, res) => {
+                  if (err) return;
+
+                  string = result.substring(64);
+                  send(
+                    {
+                      string,
+                      difficulty_factor: data.difficulty_factor,
+                      salt: data.challenge,
+                    },
+                    (err, res2) => {
+                      console.log('h2', err, res2);
+                      if (!err) {
+                        auth(username, [res, res2]);
+                      }
+                    }
+                  );
+                  console.log('h1', err, res);
+                }
+              );
+            }
+          },
+          'json'
+        ).fail(function (data) {
+          if (data.responseJSON.auth === 'in progress') {
+            setTimeout(function () {
+              challenge(username, password);
+            }, 1000);
+          } else {
+            alert(data.responseJSON.Error);
+          }
+        });
+      }
+
+      $(document).ready(function () {
+        $('form').submit(function (event) {
+          event.preventDefault();
+          var username = $('#username').val();
+          var password = $('#password').val();
+
+          challenge(username, password);
+          return false;
+        });
+      });
+    </script>
+  </body>
+</html>

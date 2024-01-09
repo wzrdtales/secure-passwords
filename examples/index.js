@@ -58,14 +58,33 @@ const db = {
 };
 const sp = new SP({
   db,
-  domain: 'example.com'
+  domain: 'example.com',
+  algorithm: 'pow',
+  hashAlgorithm: 'pow',
+  extChallenge: 'pow',
+  extraOpts: {
+    challenge: {
+      diff: 700000
+    }
+  }
 });
 
 const server = new Hapi.Server({
   routes: {
     files: {
       relativeTo: Path.join(__dirname, 'public')
-    }
+    },
+    cors: {
+        origin: ['*'],
+        credentials: true,
+        headers: ['Accept', 'Content-Type'],
+        additionalHeaders: [
+          'apollo-query-plan-experimental',
+          'content-type',
+          'x-requested-with',
+          'x-apollo-tracing'
+        ]
+      }
   },
   port: 5000
 });
