@@ -15,8 +15,12 @@ const pow = (input, domain, prior, rounds, responses, { challenge: { difficulty_
       .digest('hex');
   let i = 0;
 
+  if(!Array.isArray(responses)) return null;
+
   while(i * 64 < fin.length) {
     const auth = responses[i]
+
+    if(!auth) return null;
 
     let string = fin.substring(i * 64, i * 64 + 64); 
 
