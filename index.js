@@ -4,25 +4,24 @@ const Promise = require('bluebird');
 const crypto = require('crypto');
 const moment = require('moment');
 
-
 // an interesting way of putting the whole extra load onto the
 // client. unlike other algos, we dont have to compute the result
 // ourselves, we have a rather short and cheap validation
-const pow = (input, domain, prior, rounds, responses, { challenge: { difficulty_factor: diff} }) => {
+const pow = (input, domain, prior, rounds, responses, { challenge: { difficulty_factor: diff } }) => {
   const fin = crypto
-      .createHash('sha512')
-      .update(`${input.challenge}${input.date}${domain}${prior}`)
-      .digest('hex');
+    .createHash('sha512')
+    .update(`${input.challenge}${input.date}${domain}${prior}`)
+    .digest('hex');
   let i = 0;
 
-  if(!Array.isArray(responses)) return null;
+  if (!Array.isArray(responses)) return null;
 
-  while(i * 64 < fin.length) {
-    const auth = responses[i]
+  while (i * 64 < fin.length) {
+    const auth = responses[i];
 
-    if(!auth) return null;
+    if (!auth) return null;
 
-    let string = fin.substring(i * 64, i * 64 + 64); 
+    const string = fin.substring(i * 64, i * 64 + 64);
 
     const prefix = Buffer.from([string.length, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]);
 
@@ -33,32 +32,32 @@ const pow = (input, domain, prior, rounds, responses, { challenge: { difficulty_
   }
 
   return responses;
-}
+};
 
-
-const algos = { pow }
-const extChallenge = { pow: function()  {
+const algos = { pow };
+const extChallenge = {
+  pow: function () {
     let difficultyFactor;
-    if(this.extraOpts && this.extraOpts.challenge && this.extraOpts.challenge.diff) {
-      difficultyFactor =  this.extraOpts.challenge.diff;
+    if (this.extraOpts && this.extraOpts.challenge && this.extraOpts.challenge.diff) {
+      difficultyFactor = this.extraOpts.challenge.diff;
     } else {
       difficultyFactor = 100000;
     }
 
     return {
       difficulty_factor: difficultyFactor
-    }
-  } 
-}
+    };
+  }
+};
 
 const decrypt = (input, key, iv) => {
-  let decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-  let decrypted = decipher.update(input, 'base64', 'utf8');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  const decrypted = decipher.update(input, 'base64', 'utf8');
   return decrypted + decipher.final('utf8');
 };
 
 const processRounds = async (input, domain, prior, rounds) => {
-  function hash(challenge, prior) {
+  function hash (challenge, prior) {
     return crypto
       .createHash('sha512')
       .update(`${challenge.challenge}${challenge.date}${domain}${prior}`)
@@ -92,12 +91,12 @@ const randomString = function (len) {
  * Any authentication request is bound to the requesters ip.
  * */
 class SP {
-  constructor(options = {}) {
+  constructor (options = {}) {
     if (options.algorithm && (!typeof options.algorithm === 'function' || !algos[options.algorithm])) {
       throw new Error('Passed an invalid algorithm');
     }
 
-if (options.extChallenge && (!typeof options.extChallenge === 'function' || !extChallenge[options.extChallenge])) {
+    if (options.extChallenge && (!typeof options.extChallenge === 'function' || !extChallenge[options.extChallenge])) {
       throw new Error('Passed an invalid algorithm to extChallenge');
     }
 
@@ -118,8 +117,8 @@ if (options.extChallenge && (!typeof options.extChallenge === 'function' || !ext
     }
 
     this.algorithm = options.algorithm;
-    this.extChallenge = (typeof options.extChallenge === 'function' ? options.extChallenge : extChallenge[options.extChallenge]) 
-      || function () { return {} };
+    this.extChallenge = (typeof options.extChallenge === 'function' ? options.extChallenge : extChallenge[options.extChallenge]) ||
+      function () { return {}; };
     this.extraOpts = options.extraOpts;
     // this is what we tell the user
     this.hash = options.algorithm ? options.hashAlgorithm : 'sha512';
@@ -132,18 +131,27 @@ if (options.extChallenge && (!typeof options.extChallenge === 'function' || !ext
     this.providesAge = options.providesAge || false;
   }
 
-  async challenge(username, ip) {
+  async challenge (username, ip) {
     const challenge = {
       challenge: await randomString(32),
       date: moment().format(),
       ...this.extChallenge()
     };
-    const salt = await this.db.getSalt(username);
+    // legacy only getting the salt, optionally this
+    // gets a limited user object for the challenge
+    let salt = await this.db.getSalt(username);
+    let extend = {};
+
+    if (typeof salt === 'object') {
+      extend = salt;
+      salt = salt.salt;
+      delete extend.salt;
+    }
 
     if (!salt) {
       return {
         Error: 'You either been IP banned or there is noch such user.',
-        code: 403,
+        code: 403
       };
     }
 
@@ -158,13 +166,14 @@ if (options.extChallenge && (!typeof options.extChallenge === 'function' || !ext
     return {
       code: 200,
       ...challenge,
+      ...extend,
       hash: this.hash,
-      salt: salt,
-      rounds: this.rounds,
+      salt,
+      rounds: this.rounds
     };
   }
 
-  async changePassword(username, ip, auth, newAuth) {
+  async changePassword (username, ip, auth, newAuth) {
     const r = await this.auth(username, ip, auth);
     if (!r.auth) return r;
 
@@ -182,14 +191,14 @@ if (options.extChallenge && (!typeof options.extChallenge === 'function' || !ext
     return { code: 200, Error: false, success: true };
   }
 
-  async auth(username, ip, auth) {
-    const dbAuth =  await this.db.getAuth(username, ip);
+  async auth (username, ip, auth) {
+    const dbAuth = await this.db.getAuth(username, ip);
     const { hash, challenge, age } = dbAuth;
     let result;
     if (hash === null || challenge === null) {
       return {
         Error: 'Either the user or challenge does not exist',
-        code: 403,
+        code: 403
       };
     }
 
@@ -211,7 +220,7 @@ if (options.extChallenge && (!typeof options.extChallenge === 'function' || !ext
         this.options,
         auth
       );
-    } else if (algos[this.algorithm])  {
+    } else if (algos[this.algorithm]) {
       result = await algos[this.algorithm](challenge, this.domain, hash, this.rounds, auth, dbAuth);
     } else {
       result = await processRounds(challenge, this.domain, hash, this.rounds);
