@@ -142,17 +142,17 @@ class SP {
     let salt = await this.db.getSalt(username);
     let extend = {};
 
-    if (salt && typeof salt === 'object') {
-      extend = salt;
-      salt = salt.salt;
-      delete extend.salt;
-    }
-
     if (!salt) {
       return {
         Error: 'You either been IP banned or there is noch such user.',
         code: 403
       };
+    }
+
+    if (typeof salt === 'object') {
+      extend = salt;
+      salt = salt.salt;
+      delete extend.salt;
     }
 
     if (
