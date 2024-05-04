@@ -142,7 +142,7 @@ class SP {
     let salt = await this.db.getSalt(username);
     let extend = {};
 
-    if (typeof salt === 'object') {
+    if (salt && typeof salt === 'object') {
       extend = salt;
       salt = salt.salt;
       delete extend.salt;
