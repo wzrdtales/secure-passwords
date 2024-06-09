@@ -153,6 +153,7 @@ class SP {
       extend = salt;
       salt = salt.salt;
       delete extend.salt;
+      extend = extend.extend;
     }
 
     if (
